@@ -1,6 +1,7 @@
 from pygame import *
 from random import randint
 import math
+import time
 
 font.intit()
 Title = rect(475, 100, 300, 100)
@@ -18,6 +19,20 @@ myClock=time.Clock()
 running=True
 background = Rect(0,0,width,height)
 draw.rect(screen,(115,3,16), background)
+
+def countdown(t):
+    while t:
+        mins, secs = divmod(t, 60)
+        timer = '{:02d}:{:02d}'.format(mins, secs)
+        print(timer, end="\n")
+        time.sleep(1)
+        t -= 1
+
+PMR=420
+MOP=480
+LOC=240
+PMC=300
+
 while running:
     for evt in event.get():
         if evt.type==QUIT:
