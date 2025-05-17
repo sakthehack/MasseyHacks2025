@@ -16,6 +16,7 @@ BLUE = (0, 0, 255)
 GREEN = (0, 255, 0)
 YELLOW = (255, 255, 0)
 WHITE = (255, 255, 255)
+CRED = (115, 3, 16)
 
 running = True
 background = Rect(0, 0, width, height)
@@ -46,7 +47,7 @@ while running:
         if evt.type == QUIT:
             running = False
 
-    draw.rect(screen, (115, 3, 16), background)  # Redraw background each frame
+    draw.rect(screen, CRED, background)  # Redraw background each frame
 
     for i in Openinglist:
         # Draw transparent rectangle
