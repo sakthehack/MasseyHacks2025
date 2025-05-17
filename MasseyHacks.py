@@ -32,6 +32,7 @@ PMR=420
 MOP=480
 LOC=240
 PMC=300
+prep=900
 
 while running:
     for evt in event.get():
