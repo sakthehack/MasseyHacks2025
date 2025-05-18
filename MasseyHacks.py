@@ -6,7 +6,7 @@ import time as pytime # You used time.sleep in countdown
 import os
 import openai
 
-openai.api_key = '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'
+openai.api_key = 'put it yourself'
 
 font.init()
 
