@@ -12,13 +12,29 @@ font.init()
 
 
 
-speeches=[1,1,1,1,1,1]
+speeches=[450,510,510,510,270,330]
 
 def draw_back_button(screen):
-    back_button_rect = Rect(40, 30, 60, 40)
-    back_button_image = transform.scale(image.load("assets/back.png"), (60, 40))
-    screen.blit(back_button_image, back_button_rect.topleft)
+    back_button_rect = Rect(35, 20, 100, 50)
+    mouse_pos = mouse.get_pos()
+    is_hovered = back_button_rect.collidepoint(mouse_pos)
+
+    background_color = (255, 255, 240) if is_hovered else (240, 240, 240)
+    border_color = (80, 80, 80) if is_hovered else (50, 50, 50)
+    if is_hovered:
+        glow_rect = back_button_rect.inflate(12, 12)
+        s = Surface(glow_rect.size, SRCALPHA)
+        draw.ellipse(s, (255, 255, 180, 60), s.get_rect())
+        screen.blit(s, glow_rect.topleft)
+    draw.rect(screen, background_color, back_button_rect, border_radius=8)
+    draw.rect(screen, border_color, back_button_rect, 2, border_radius=8)
+    button_font = font.SysFont("georgia", 28, bold=True)
+    text_surface = button_font.render("Back", True, (30, 30, 30))
+    text_rect = text_surface.get_rect(center=back_button_rect.center)
+    screen.blit(text_surface, text_rect)
     return back_button_rect
+
+
 
 
 width,height=1250,650
@@ -97,12 +113,14 @@ def menu(screen):
     global r,g,b
     draw.rect(screen,(r,g,b),background)
     titletext = font.Font("assets/That Sounds Great.otf", 40)
-    Title = Rect(325, 50, 600, 125)
+    Ttext = font.Font("assets/That Sounds Great.otf", 70)
+    Title = Rect(400, 50, 800, 125)
+    title=Ttext.render("Debate.io", True, BLACK)
     About = Rect(475, 200, 300, 100)
     Start = Rect(375, 325, 500, 100)
     settings = Rect(475, 450, 300, 100)
-    Openinglist = [Title, About, Start, settings]
-    openingtext = ["Debate.io", "About", "Start", "Settings"] 
+    Openinglist = [About, Start, settings]
+    openingtext = ["About", "Start", "Settings"] 
     r = red_slider.get_value()
     g = blue_slider.get_value()
     b = green_slider.get_value()
@@ -116,6 +134,8 @@ def menu(screen):
             return "exit"
         mb = mouse.get_pressed()
         mx, my = mouse.get_pos()
+
+        screen.blit(title,Title)
 
         for i in Openinglist:
             # Draw transparent rectangle
@@ -136,7 +156,7 @@ def menu(screen):
             draw.rect(screen, border_color, i, 2)
 
         if mb[0] and Start.collidepoint(mx,my):
-            return "debate"
+            return "topGen"
         if mb[0] and settings.collidepoint(mx,my):
             return "settings"
         if mb[0] and About.collidepoint(mx,my):
@@ -145,8 +165,9 @@ def menu(screen):
         draw_back_button(screen)
 
         display.flip()
-def get_random_topic():
-    prompt = "Give me a creative topic for an American Parliamentary style debate. Start it with with an acronym like THBT (this house believes that or THR (this house regrets)or THW (this house would) or BIRT (be it resolves that). It can be fun interesting a little serious or whatever you think is apropriate and cool. This is for Highschool debate club practices.)"
+
+def get_random_topic(input_text):
+    prompt = f"Give me a creative topic for an American Parliamentary style debate. Start it with with an acronym like THBT (this house believes that or THR (this house regrets)or THW (this house would) or BIRT (be it resolves that). The genre that the user has chosen for debate is: {input_text}"
     
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",  # or "gpt-4" if available
@@ -155,10 +176,11 @@ def get_random_topic():
         ],
         max_tokens=50
     )
-    
     topic = response['choices'][0]['message']['content'].strip()
     return topic
+
 def get_max_visible_lines():
+    global TopicRect
     return TopicRect.height // line_height
 
 def wrap_last_line():
@@ -177,10 +199,114 @@ def wrap_last_line():
             lines[-1] = last_line[:-1]
         lines.append(new_line)
 
+def topGen(screen):
+    back_button = draw_back_button(screen)
+
+    input_rect   = Rect(150, 250, 950, 60)
+    input_active = False
+    input_text   = ""
+
+    input_font   = font.SysFont("Arial", 32)
+    button_font  = font.SysFont("Arial", 36)
+
+    prompt_text  = "Enter topic genre:"
+    generate_button_rect = Rect(500, 340, 300, 60)
+    accept_button_rect   = Rect(550, 500, 200, 60)
+
+    topic = None
+
+    running = True
+    while running:
+        mx, my = mouse.get_pos()
+        mb     = mouse.get_pressed()
+
+        for evt in event.get():
+            if evt.type == QUIT:
+                return "exit"
+            elif evt.type == MOUSEBUTTONDOWN:
+                if input_rect.collidepoint(evt.pos):
+                    input_active = True
+                else:
+                    input_active = False
+
+                if back_button.collidepoint(evt.pos):
+                    return "menu"
+
+                if generate_button_rect.collidepoint(evt.pos):
+                    topic = get_random_topic(input_text)  # Replace with your topic generator
+
+                if topic and accept_button_rect.collidepoint(evt.pos):
+                    return topic
+
+            elif evt.type == KEYDOWN and input_active:
+                if evt.key == K_BACKSPACE:
+                    input_text = input_text[:-1]
+                elif evt.key in (K_RETURN, K_KP_ENTER):
+                    input_active = False
+                else:
+                    input_text += evt.unicode
+
+        # ---- Drawing ----
+        screen.fill((r, g, b))  # Define r, g, b elsewhere
+
+        # Input Box
+        box_surface = Surface((input_rect.w, input_rect.h), SRCALPHA)
+        box_surface.fill((255, 255, 255, 180))
+        screen.blit(box_surface, input_rect.topleft)
+        draw.rect(screen, BLACK, input_rect, 2)
+
+        # Prompt or Input Text
+        if input_text or input_active:
+            txt_surface = input_font.render(input_text, True, BLACK)
+        else:
+            txt_surface = input_font.render(prompt_text, True, (150, 150, 150))
+        screen.blit(txt_surface, (input_rect.x + 10, input_rect.y + 14))
+
+        # Generate Button
+        gen_color = (200, 200, 255) if generate_button_rect.collidepoint(mx, my) else (180, 180, 220)
+        draw.rect(screen, gen_color, generate_button_rect)
+        draw.rect(screen, BLACK, generate_button_rect, 2)
+        gen_label = button_font.render("Generate Topic", True, BLACK)
+        screen.blit(gen_label, gen_label.get_rect(center=generate_button_rect.center))
+
+        if topic:
+            words = topic.split()
+            lines = []
+            current_line = ""
+
+            for word in words:
+                if len(current_line + " " + word) <= 50:
+                    current_line += " " + word if current_line else word
+                else:
+                    lines.append(current_line)
+                    current_line = word
+            if current_line:
+                lines.append(current_line)
+
+            # Draw up to two lines of topic, ABOVE the input bar
+            for i, line in enumerate(lines):
+                label = f"Topic: {line}" if i == 0 else line
+                topic_surf = input_font.render(label, True, BLACK)
+                screen.blit(topic_surf, (input_rect.x + 200, input_rect.y - 150 + i * 35))  # Above input box
+
+            # Accept Button
+            accept_color = (180, 255, 180) if accept_button_rect.collidepoint(mx, my) else (160, 230, 160)
+            draw.rect(screen, accept_color, accept_button_rect)
+            draw.rect(screen, BLACK, accept_button_rect, 2)
+            accept_label = button_font.render("Accept", True, BLACK)
+            screen.blit(accept_label, accept_label.get_rect(center=accept_button_rect.center))
+
+        # Back Button (draw again each frame)
+        back_button = draw_back_button(screen)
+
+        display.flip()
 
 
-def PrepDebate(screen):
-    global topic, total_seconds, speeches, speech
+
+def PrepDebate(screen,input_text):
+    global total_seconds, speeches
+    topic=input_text
+    endRect=Rect(425,593,400,50)
     back_button=draw_back_button(screen)
     font.init()
     timertxtFont = font.Font("assets/That Sounds Great.otf", 150)
@@ -192,10 +318,9 @@ def PrepDebate(screen):
     # Buttons left and right of the timer
     pause_button = Rect(Timerrect.left - 160, Timerrect.centery - 30, 150, 60)
     resume_button = Rect(Timerrect.right + 10, Timerrect.centery - 30, 150, 60)
-    newButton=Rect(550,260,200,100)
 
     # Timer setup
-    total_seconds = 10  # 15 minutes
+    total_seconds = 900  # 15 minutes
     start_ticks = time.get_ticks()
     paused = False
     pause_start = 0
@@ -229,13 +354,6 @@ def PrepDebate(screen):
 
         return remaining
     timer_ended = False
-    poi_button = Rect(1050, 20, 150, 50)
-
-    # POI variables
-    poi_active = False
-    poi_start = 0
-    poi_duration = 15  # seconds
-    poi_count = 0
 
     while running:
         mx, my = mouse.get_pos()
@@ -267,6 +385,7 @@ def PrepDebate(screen):
             if mb[0] and back_button.collidepoint(mx,my):
                 return "menu"
             back_button=draw_back_button(screen)
+            
         
         screen.fill((r,g,b))
 
@@ -281,23 +400,14 @@ def PrepDebate(screen):
         screen.blit(text_surf, (input_box.x + 10, input_box.y + 10))
 
         # Draw timer and buttons
-        if not paused:
-            remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
-        else:
-            draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
-        endRect=Rect(425,593,400,50)
-        draw_button(endRect, "End Speech")
-        if endRect.collidepoint(mx,my):
-            draw.rect(screen,WHITE,endRect,5)
-        if mb[0] and endRect.collidepoint(mx,my):
-                    timer_ended=True
         if not timer_ended:
-                    if not paused:
-                        remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
-                    else:
-                        remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+            if not paused:
+                remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+            else:
+                remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
         else:
-                    remaining_time = 0  # force it to 0 if timer ended
+            remaining_time = 0  # force it to 0 if timer ended
+
         draw_button(pause_button, "Pause", not paused)
         draw_button(resume_button, "Resume", paused)
 
@@ -317,18 +427,34 @@ def PrepDebate(screen):
                 # Show the continue button instead of timer
                 draw.rect(screen, RED, Timerrect)
                 draw_button(continue_button, "Continue")
-        main_font = font.SysFont("assets/That Sounds Good.otf", 30)
-        rendered_text = main_font.render(topic, True, (0, 0, 0))
-        screen.blit(rendered_text, (100, 100))
-        draw_button(newButton, "New Motion")
-        if newButton.collidepoint(mx,my):
-            draw.rect(screen,WHITE,newButton,5)
-        if mb[0] and newButton.collidepoint(mx,my):
-            topic = get_random_topic()
-            total_seconds = 10
-            start_ticks = time.get_ticks()
-            pause_accumulated = 0
-            paused = False
+
+        main_font = font.SysFont("assets/That Sounds Good.otf", 40)
+
+        if topic:
+            words = topic.split()
+            lines = []
+            current_line = ""
+
+            for word in words:
+                if len(current_line + " " + word) <= 50:
+                    current_line += " " + word if current_line else word
+                else:
+                    lines.append(current_line)
+                    current_line = word
+            if current_line:
+                lines.append(current_line)
+
+            # Draw up to two lines of topic, ABOVE the input bar
+            for i, line in enumerate(lines):
+                label = f"{line}" if i == 0 else line
+                topic_surf = main_font.render(label, True, BLACK)
+                screen.blit(topic_surf, (250, 150 + i * 35))  # Above input box
+
+        draw_button(endRect, "End Speech")
+        if endRect.collidepoint(mx,my):
+            draw.rect(screen,WHITE,endRect,5)
+        if mb[0] and endRect.collidepoint(mx,my):
+            timer_ended=True
 
         if mb[0] and continue_button.collidepoint(mx,my) and timer_ended:
             return "PmDebate"
@@ -340,8 +466,6 @@ def PrepDebate(screen):
         back_button=draw_back_button(screen)
 
         display.flip()
-
-topic = get_random_topic()
 
 def PmDebate(screen):
     global speeches, lines, scroll_offset, input_active
@@ -1564,12 +1688,16 @@ def about(screen):
     title_font = font.SysFont("That Sounds Good.otf", 50)
     text_font = font.SysFont("That Sounds Good.otf", 28)
     back_button=draw_back_button(screen)
-    odette=transform.scale(image.load("assets/odette.jpg"),(700,350))
+    odette=transform.scale(image.load("assets/odette.jpg"),(700,400))
     #little ai help
     about_slides = [
         {"image": "about1.png", "caption": "Welcome to Debate.io – your debate companion."},
-        {"image": "about2.png", "caption": "Change the color palet of the app!"},
-        {"image": "about3.png", "caption": "Used by trusted debaters all through Massey!"}
+        {"image": "about2.png", "caption": "Used and beloved by all Massey Debaters."},
+        {"image": "about2.png", "caption": "Generate fun topics of your interest..."},
+        {"image": "about3.png", "caption": "Have properly structured debates with built in debate timers..."},
+        {"image": "about4.png", "caption": "And get consistent AI reviewed feedback based off your judge's notes"},
+        {"image": "about5.png", "caption": "Start Debating Now with Debate.io!!!"}
+
     ]
 
     # Little AI usage to load images
@@ -1706,8 +1834,8 @@ page = "menu"
 while page != "exit":
     if page == "menu":
         page = menu(screen)
-    elif page == "debate":
-        page = PrepDebate(screen)
+    elif page=="topGen":
+        page = topGen(screen)
     elif page == "PmDebate":
         page = PmDebate(screen)
     elif page == "LopDebate":
@@ -1726,5 +1854,7 @@ while page != "exit":
         page = about(screen)
     elif page == "Judging":
         judging(screen)
+    else:
+        page = PrepDebate(screen,page)
  
 quit()
