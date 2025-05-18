@@ -3,17 +3,22 @@ from random import randint
 import math
 import time as pytime # You used time.sleep in countdown
 import os
+import openai
 
-
+openai.api_key = ''
 font.init()
 
+
+
+speeches=[450,510,510,510,270,330]
+
 def draw_back_button(screen):
-    back_button_rect = Rect(40, 50, 60, 40)
+    back_button_rect = Rect(40, 30, 60, 40)
     back_button_image = transform.scale(image.load("assets/back.png"), (60, 40))
     screen.blit(back_button_image, back_button_rect.topleft)
     return back_button_rect
 
-
+endRect=Rect(425,593,400,50)
 width,height=1250,650
 screen=display.set_mode((width,height))
 RED=(255,0,0)
@@ -28,6 +33,7 @@ myClock=time.Clock()
 running=True
 draw.rect(screen,(115,3,16), background)
 r,g,b = 116,3,16
+
 class Slider:
     def __init__(self, x, y, color, width=600, height=15, max_value=255):
         self.x = x
@@ -72,11 +78,14 @@ def countdown(t):
 red_slider = Slider(350, 150, (255, 0, 0))
 green_slider = Slider(350, 220, (0, 255, 0))
 blue_slider = Slider(350, 290, (0, 0, 255))
+red_slider.value = 116
+green_slider.value = 3
+blue_slider.value = 16
 volume_slider = Slider(350, 360, (200, 200, 200), max_value=100)
-PMR=420
-MOP=480
-LOC=240
-PMC=300
+PMR=450
+MOP=510
+LOC=270
+PMC=330
 prep=900
 def menu(screen):
     global r,g,b
@@ -130,17 +139,1105 @@ def menu(screen):
         draw_back_button(screen)
 
         display.flip()
+def get_random_topic():
+    prompt = "Give me a creative topic for an American Parliamentary style debate. Start it with with an acronym like THBT (this house believes that or THR (this house regrets)or THW (this house would) or BIRT (be it resolves that). It can be fun interesting a little serious or whatever you think is apropriate and cool. This is for Highschool debate club practices.)"
+    
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",  # or "gpt-4" if available
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=50
+    )
+    topic = response['choices'][0]['message']['content'].strip()
+    return topic
 def PrepDebate(screen):
+    global topic, total_seconds, speeches
+    endRect=Rect(425,593,400,50)
     back_button=draw_back_button(screen)
+    font.init()
+    timertxtFont = font.Font("assets/That Sounds Great.otf", 150)
+    buttonFont = font.SysFont("Arial", 40)
+    inputFont = font.SysFont("Arial", 32)
+    TopicRect = Rect(75, 75, 1100, 300)
+    Timerrect = Rect(350, 432, 550, 150)
+    continue_button = Rect(350, 432, 550, 150)
+    # Buttons left and right of the timer
+    pause_button = Rect(Timerrect.left - 160, Timerrect.centery - 30, 150, 60)
+    resume_button = Rect(Timerrect.right + 10, Timerrect.centery - 30, 150, 60)
+    newButton=Rect(525,260,200,100)
+
+    # Timer setup
+    total_seconds = 10  # 15 minutes
+    start_ticks = time.get_ticks()
+    paused = False
+    pause_start = 0
+    pause_accumulated = 0
+
+    # Input text field
+    input_active = False
+    input_text = ""
+    input_box = TopicRect
     running=True
+    def draw_button(rect, text, active=True):
+        color = GREY if active else (100, 100, 100)
+        rect_color = Surface((rect.width, rect.height), SRCALPHA)
+        rect_color.fill((*color, 255))
+        screen.blit(rect_color, (rect.x, rect.y))
+        draw.rect(screen,BLACK,rect,2)
+        label = buttonFont.render(text, True, BLACK)
+        label_rect = label.get_rect(center=rect.center)
+        screen.blit(label, label_rect)
+
+    def draw_timer(start_ticks, total_seconds, pause_accumulated):
+        current_ticks = time.get_ticks()
+        seconds_passed = (current_ticks - start_ticks - pause_accumulated) // 1000
+        remaining = max(0, total_seconds - seconds_passed)
+        mins, secs = divmod(remaining, 60)
+        timer_str = '{:02d}:{:02d}'.format(mins, secs)
+
+        draw.rect(screen, RED, Timerrect)
+        timetext = timertxtFont.render(timer_str, True, BLACK)
+        screen.blit(timetext, (Timerrect.x + 17, Timerrect.y - 15))
+
+        return remaining
+    timer_ended = False
+
     while running:
+        mx, my = mouse.get_pos()
+        mb = mouse.get_pressed()
+        for evt in event.get():
+            if evt.type == QUIT:
+                running = False
+            elif evt.type == MOUSEBUTTONDOWN:
+                if pause_button.collidepoint(evt.pos) and not paused:
+                    paused = True
+                    pause_start = time.get_ticks()
+                elif resume_button.collidepoint(evt.pos) and paused:
+                    paused = False
+                    pause_end = time.get_ticks()
+                    pause_accumulated += pause_end - pause_start
+                elif continue_button.collidepoint(mx,my) and remaining_time == 0:
+                    print("sigma")
+                    #would go to next thing.
+                
+                
+            elif evt.type == KEYDOWN and input_active:
+                if evt.key == K_BACKSPACE:
+                    input_text = input_text[:-1]
+                elif evt.key == K_RETURN:
+                    input_active = False
+                else:
+                    input_text += evt.unicode
+
+            if mb[0] and back_button.collidepoint(mx,my):
+                return "menu"
+            back_button=draw_back_button(screen)
+            
+        
+        screen.fill((r,g,b))
+
+        # Draw input box with transparency and border
+        topic_surface = Surface((input_box.width, input_box.height), SRCALPHA)
+        topic_surface.fill((255, 255, 255, 180))
+        screen.blit(topic_surface, (input_box.x, input_box.y))
+        draw.rect(screen, BLACK, input_box, 2)
+
+        # Draw topic text
+        text_surf = inputFont.render(input_text, True, BLACK)
+        screen.blit(text_surf, (input_box.x + 10, input_box.y + 10))
+
+        # Draw timer and buttons
+        if not timer_ended:
+            if not paused:
+                remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+            else:
+                remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+        else:
+            remaining_time = 0  # force it to 0 if timer ended
+
+        draw_button(pause_button, "Pause", not paused)
+        draw_button(resume_button, "Resume", paused)
+
+        if remaining_time == 0:
+            if not timer_ended:
+                if not paused:
+                    remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+                else:
+                    draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+                draw_button(pause_button, "Pause", not paused)
+                draw_button(resume_button, "Resume", paused)
+
+                if remaining_time == 0:
+                    timer_ended = True
+            else:
+                # Show the continue button instead of timer
+                draw.rect(screen, RED, Timerrect)
+                draw_button(continue_button, "Continue")
+        main_font = font.SysFont("assets/That Sounds Good.otf", 30)
+        rendered_text = main_font.render(topic, True, (0, 0, 0))
+        screen.blit(rendered_text, (100, 100))
+        draw_button(newButton, "New Motion")
+        draw_button(endRect, "End Speech")
+        if newButton.collidepoint(mx,my):
+            draw.rect(screen,WHITE,newButton,5)
+        if endRect.collidepoint(mx,my):
+            draw.rect(screen,WHITE,endRect,5)
+        if mb[0] and newButton.collidepoint(mx,my):
+            topic = get_random_topic()
+            total_seconds = 10
+            start_ticks = time.get_ticks()
+            pause_accumulated = 0
+            paused = False
+        if mb[0] and endRect.collidepoint(mx,my):
+            timer_ended=True
+
+        if mb[0] and continue_button.collidepoint(mx,my) and timer_ended:
+            return "PmDebate"
+
+
+        if mb[0] and back_button.collidepoint(mx, my):
+                return "menu"
+            
+        back_button=draw_back_button(screen)
 
         display.flip()
 
+topic = get_random_topic()
+
+def PmDebate(screen):
+    global speeches,endRect
+    back_button=draw_back_button(screen)
+    font.init()
+    timertxtFont = font.Font("assets/That Sounds Great.otf", 150)
+    buttonFont = font.SysFont("Arial", 40)
+    inputFont = font.SysFont("Arial", 32)
+    TopicRect = Rect(75, 75, 1100, 300)
+    Timerrect = Rect(350, 432, 550, 150)
+    continue_button = Rect(350, 432, 550, 150)
+    # Buttons left and right of the timer
+    pause_button = Rect(Timerrect.left - 160, Timerrect.centery - 30, 150, 60)
+    resume_button = Rect(Timerrect.right + 10, Timerrect.centery - 30, 150, 60)
+
+    # Timer setup
+    total_seconds = speeches[0]   # 15 minutes
+    start_ticks = time.get_ticks()
+    paused = False
+    pause_start = 0
+    pause_accumulated = 0
+
+    # Input text field
+    input_active = False
+    input_text = ""
+    input_box = TopicRect
+    running=True
+    def draw_button(rect, text, active=True):
+        color = GREY if active else (100, 100, 100)
+        rect_color = Surface((rect.width, rect.height), SRCALPHA)
+        rect_color.fill((*color, 255))
+        screen.blit(rect_color, (rect.x, rect.y))
+        draw.rect(screen,BLACK,rect,2)
+        label = buttonFont.render(text, True, BLACK)
+        label_rect = label.get_rect(center=rect.center)
+        screen.blit(label, label_rect)
+
+    def draw_timer(start_ticks, total_seconds, pause_accumulated):
+        current_ticks = time.get_ticks()
+        seconds_passed = (current_ticks - start_ticks - pause_accumulated) // 1000
+        remaining = max(0, total_seconds - seconds_passed)
+        mins, secs = divmod(remaining, 60)
+        timer_str = '{:02d}:{:02d}'.format(mins, secs)
+
+        draw.rect(screen, RED, Timerrect)
+        timetext = timertxtFont.render(timer_str, True, BLACK)
+        screen.blit(timetext, (Timerrect.x + 17, Timerrect.y - 15))
+
+        return remaining
+    timer_ended = False
+    poi_button = Rect(1050, 20, 150, 50)
+
+    # POI variables
+    poi_active = False
+    poi_start = 0
+    poi_duration = 15  # seconds
+    poi_count = 0
+
+    while running:
+        mx, my = mouse.get_pos()
+        mb = mouse.get_pressed()
+        for evt in event.get():
+            if evt.type == QUIT:
+                running = False
+            elif evt.type == MOUSEBUTTONDOWN:
+                if poi_button.collidepoint(evt.pos):
+                    if poi_active:
+                        poi_active = False
+                        poi_count += 1
+                    else:
+                        poi_active = True
+                        poi_start = time.get_ticks()
+                if pause_button.collidepoint(evt.pos) and not paused:
+                    paused = True
+                    pause_start = time.get_ticks()
+                elif resume_button.collidepoint(evt.pos) and paused:
+                    paused = False
+                    pause_end = time.get_ticks()
+                    pause_accumulated += pause_end - pause_start
+                elif continue_button.collidepoint(mx,my) and remaining_time == 0:
+                    print("sigma")
+                    #would go to next thing.
+                
+                
+            elif evt.type == KEYDOWN and input_active:
+                if evt.key == K_BACKSPACE:
+                    input_text = input_text[:-1]
+                elif evt.key == K_RETURN:
+                    input_active = False
+                else:
+                    input_text += evt.unicode
+
+            if mb[0] and back_button.collidepoint(mx,my):
+                return "menu"
+            back_button=draw_back_button(screen)
+        
+        screen.fill((r,g,b))
+
+        # Draw input box with transparency and border
+        topic_surface = Surface((input_box.width, input_box.height), SRCALPHA)
+        topic_surface.fill((255, 255, 255, 180))
+        screen.blit(topic_surface, (input_box.x, input_box.y))
+        draw.rect(screen, BLACK, input_box, 2)
+
+        # Draw topic text
+        text_surf = inputFont.render(input_text, True, BLACK)
+        screen.blit(text_surf, (input_box.x + 10, input_box.y + 10))
+
+        # Draw timer and buttons
+        if not paused:
+            remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+        else:
+            draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+        draw_button(pause_button, "Pause", not paused)
+        draw_button(resume_button, "Resume", paused)
+
+        if remaining_time == 0:
+            if not timer_ended:
+                if not paused:
+                    remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+                else:
+                    draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+                draw_button(pause_button, "Pause", not paused)
+                draw_button(resume_button, "Resume", paused)
+
+                if remaining_time == 0:
+                    timer_ended = True
+            else:
+                # Show the continue button instead of timer
+                draw.rect(screen, RED, Timerrect)
+                draw_button(continue_button, "Continue")
+
+
+
+        if poi_active:
+            poi_elapsed = (time.get_ticks() - poi_start) // 1000
+            poi_remaining = max(0, poi_duration - poi_elapsed)
+            poi_label = buttonFont.render(f"POI: {poi_remaining}s", True, WHITE)
+            screen.blit(poi_label, (poi_button.x-150, poi_button.y))
+            if poi_remaining == 0:
+                poi_count += 1
+                poi_active = False
+
+        draw_button(poi_button, f"POI: {poi_count}", not poi_active)
+
+        if mb[0] and continue_button.collidepoint(mx,my) and timer_ended:
+            return "LopDebate"
+
+        if mb[0] and back_button.collidepoint(mx, my):
+                return "menu"
+            
+        back_button=draw_back_button(screen)
+
+        display.flip()
+def LopDebate(screen):
+    global speeches,endRect
+    back_button=draw_back_button(screen)
+    font.init()
+    timertxtFont = font.Font("assets/That Sounds Great.otf", 150)
+    buttonFont = font.SysFont("Arial", 40)
+    inputFont = font.SysFont("Arial", 32)
+    TopicRect = Rect(75, 75, 1100, 300)
+    Timerrect = Rect(350, 432, 550, 150)
+    continue_button = Rect(350, 432, 550, 150)
+    # Buttons left and right of the timer
+    pause_button = Rect(Timerrect.left - 160, Timerrect.centery - 30, 150, 60)
+    resume_button = Rect(Timerrect.right + 10, Timerrect.centery - 30, 150, 60)
+
+    # Timer setup
+    total_seconds = speeches[1]   # 15 minutes
+    start_ticks = time.get_ticks()
+    paused = False
+    pause_start = 0
+    pause_accumulated = 0
+
+    # Input text field
+    input_active = False
+    input_text = ""
+    input_box = TopicRect
+    running=True
+    def draw_button(rect, text, active=True):
+        color = GREY if active else (100, 100, 100)
+        rect_color = Surface((rect.width, rect.height), SRCALPHA)
+        rect_color.fill((*color, 255))
+        screen.blit(rect_color, (rect.x, rect.y))
+        draw.rect(screen,BLACK,rect,2)
+        label = buttonFont.render(text, True, BLACK)
+        label_rect = label.get_rect(center=rect.center)
+        screen.blit(label, label_rect)
+
+    def draw_timer(start_ticks, total_seconds, pause_accumulated):
+        current_ticks = time.get_ticks()
+        seconds_passed = (current_ticks - start_ticks - pause_accumulated) // 1000
+        remaining = max(0, total_seconds - seconds_passed)
+        mins, secs = divmod(remaining, 60)
+        timer_str = '{:02d}:{:02d}'.format(mins, secs)
+
+        draw.rect(screen, RED, Timerrect)
+        timetext = timertxtFont.render(timer_str, True, BLACK)
+        screen.blit(timetext, (Timerrect.x + 17, Timerrect.y - 15))
+
+        return remaining
+    timer_ended = False
+    poi_button = Rect(1050, 20, 150, 50)
+
+    # POI variables
+    poi_active = False
+    poi_start = 0
+    poi_duration = 15  # seconds
+    poi_count = 0
+
+    while running:
+        mx, my = mouse.get_pos()
+        mb = mouse.get_pressed()
+        for evt in event.get():
+            if evt.type == QUIT:
+                running = False
+            elif evt.type == MOUSEBUTTONDOWN:
+                if poi_button.collidepoint(evt.pos):
+                    if poi_active:
+                        poi_active = False
+                        poi_count += 1
+                    else:
+                        poi_active = True
+                        poi_start = time.get_ticks()
+                if pause_button.collidepoint(evt.pos) and not paused:
+                    paused = True
+                    pause_start = time.get_ticks()
+                elif resume_button.collidepoint(evt.pos) and paused:
+                    paused = False
+                    pause_end = time.get_ticks()
+                    pause_accumulated += pause_end - pause_start
+                elif continue_button.collidepoint(mx,my) and remaining_time == 0:
+                    print("sigma")
+                    #would go to next thing.
+                
+                
+            elif evt.type == KEYDOWN and input_active:
+                if evt.key == K_BACKSPACE:
+                    input_text = input_text[:-1]
+                elif evt.key == K_RETURN:
+                    input_active = False
+                else:
+                    input_text += evt.unicode
+
+            if mb[0] and back_button.collidepoint(mx,my):
+                return "menu"
+            back_button=draw_back_button(screen)
+        
+        screen.fill((r,g,b))
+
+        # Draw input box with transparency and border
+        topic_surface = Surface((input_box.width, input_box.height), SRCALPHA)
+        topic_surface.fill((255, 255, 255, 180))
+        screen.blit(topic_surface, (input_box.x, input_box.y))
+        draw.rect(screen, BLACK, input_box, 2)
+
+        # Draw topic text
+        text_surf = inputFont.render(input_text, True, BLACK)
+        screen.blit(text_surf, (input_box.x + 10, input_box.y + 10))
+
+        # Draw timer and buttons
+        if not paused:
+            remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+        else:
+            draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+        draw_button(pause_button, "Pause", not paused)
+        draw_button(resume_button, "Resume", paused)
+
+        if remaining_time == 0:
+            if not timer_ended:
+                if not paused:
+                    remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+                else:
+                    draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+                draw_button(pause_button, "Pause", not paused)
+                draw_button(resume_button, "Resume", paused)
+
+                if remaining_time == 0:
+                    timer_ended = True
+            else:
+                # Show the continue button instead of timer
+                draw.rect(screen, RED, Timerrect)
+                draw_button(continue_button, "Continue")
+
+
+
+        if poi_active:
+            poi_elapsed = (time.get_ticks() - poi_start) // 1000
+            poi_remaining = max(0, poi_duration - poi_elapsed)
+            poi_label = buttonFont.render(f"POI: {poi_remaining}s", True, WHITE)
+            screen.blit(poi_label, (poi_button.x-150, poi_button.y))
+            if poi_remaining == 0:
+                poi_count += 1
+                poi_active = False
+
+        draw_button(poi_button, f"POI: {poi_count}", not poi_active)
+
+        if mb[0] and continue_button.collidepoint(mx,my) and timer_ended:
+            return "MgDebate"
+
+        if mb[0] and back_button.collidepoint(mx, my):
+                return "menu"
+            
+        back_button=draw_back_button(screen)
+
+        display.flip()
+def MgDebate(screen):
+    global speeches,endRect
+    back_button=draw_back_button(screen)
+    font.init()
+    timertxtFont = font.Font("assets/That Sounds Great.otf", 150)
+    buttonFont = font.SysFont("Arial", 40)
+    inputFont = font.SysFont("Arial", 32)
+    TopicRect = Rect(75, 75, 1100, 300)
+    Timerrect = Rect(350, 432, 550, 150)
+    continue_button = Rect(350, 432, 550, 150)
+    # Buttons left and right of the timer
+    pause_button = Rect(Timerrect.left - 160, Timerrect.centery - 30, 150, 60)
+    resume_button = Rect(Timerrect.right + 10, Timerrect.centery - 30, 150, 60)
+
+    # Timer setup
+    total_seconds = speeches[2]   # 15 minutes
+    start_ticks = time.get_ticks()
+    paused = False
+    pause_start = 0
+    pause_accumulated = 0
+
+    # Input text field
+    input_active = False
+    input_text = ""
+    input_box = TopicRect
+    running=True
+    def draw_button(rect, text, active=True):
+        color = GREY if active else (100, 100, 100)
+        rect_color = Surface((rect.width, rect.height), SRCALPHA)
+        rect_color.fill((*color, 255))
+        screen.blit(rect_color, (rect.x, rect.y))
+        draw.rect(screen,BLACK,rect,2)
+        label = buttonFont.render(text, True, BLACK)
+        label_rect = label.get_rect(center=rect.center)
+        screen.blit(label, label_rect)
+
+    def draw_timer(start_ticks, total_seconds, pause_accumulated):
+        current_ticks = time.get_ticks()
+        seconds_passed = (current_ticks - start_ticks - pause_accumulated) // 1000
+        remaining = max(0, total_seconds - seconds_passed)
+        mins, secs = divmod(remaining, 60)
+        timer_str = '{:02d}:{:02d}'.format(mins, secs)
+
+        draw.rect(screen, RED, Timerrect)
+        timetext = timertxtFont.render(timer_str, True, BLACK)
+        screen.blit(timetext, (Timerrect.x + 17, Timerrect.y - 15))
+
+        return remaining
+    timer_ended = False
+    poi_button = Rect(1050, 20, 150, 50)
+
+    # POI variables
+    poi_active = False
+    poi_start = 0
+    poi_duration = 15  # seconds
+    poi_count = 0
+
+    while running:
+        mx, my = mouse.get_pos()
+        mb = mouse.get_pressed()
+        for evt in event.get():
+            if evt.type == QUIT:
+                running = False
+            elif evt.type == MOUSEBUTTONDOWN:
+                if poi_button.collidepoint(evt.pos):
+                    if poi_active:
+                        poi_active = False
+                        poi_count += 1
+                    else:
+                        poi_active = True
+                        poi_start = time.get_ticks()
+                if pause_button.collidepoint(evt.pos) and not paused:
+                    paused = True
+                    pause_start = time.get_ticks()
+                elif resume_button.collidepoint(evt.pos) and paused:
+                    paused = False
+                    pause_end = time.get_ticks()
+                    pause_accumulated += pause_end - pause_start
+                elif continue_button.collidepoint(mx,my) and remaining_time == 0:
+                    print("sigma")
+                    #would go to next thing.
+                
+                
+            elif evt.type == KEYDOWN and input_active:
+                if evt.key == K_BACKSPACE:
+                    input_text = input_text[:-1]
+                elif evt.key == K_RETURN:
+                    input_active = False
+                else:
+                    input_text += evt.unicode
+
+            if mb[0] and back_button.collidepoint(mx,my):
+                return "menu"
+            back_button=draw_back_button(screen)
+        
+        screen.fill((r,g,b))
+
+        # Draw input box with transparency and border
+        topic_surface = Surface((input_box.width, input_box.height), SRCALPHA)
+        topic_surface.fill((255, 255, 255, 180))
+        screen.blit(topic_surface, (input_box.x, input_box.y))
+        draw.rect(screen, BLACK, input_box, 2)
+
+        # Draw topic text
+        text_surf = inputFont.render(input_text, True, BLACK)
+        screen.blit(text_surf, (input_box.x + 10, input_box.y + 10))
+
+        # Draw timer and buttons
+        if not paused:
+            remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+        else:
+            draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+        draw_button(pause_button, "Pause", not paused)
+        draw_button(resume_button, "Resume", paused)
+
+        if remaining_time == 0:
+            if not timer_ended:
+                if not paused:
+                    remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+                else:
+                    draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+                draw_button(pause_button, "Pause", not paused)
+                draw_button(resume_button, "Resume", paused)
+
+                if remaining_time == 0:
+                    timer_ended = True
+            else:
+                # Show the continue button instead of timer
+                draw.rect(screen, RED, Timerrect)
+                draw_button(continue_button, "Continue")
+
+
+
+        if poi_active:
+            poi_elapsed = (time.get_ticks() - poi_start) // 1000
+            poi_remaining = max(0, poi_duration - poi_elapsed)
+            poi_label = buttonFont.render(f"POI: {poi_remaining}s", True, WHITE)
+            screen.blit(poi_label, (poi_button.x-150, poi_button.y))
+            if poi_remaining == 0:
+                poi_count += 1
+                poi_active = False
+
+        draw_button(poi_button, f"POI: {poi_count}", not poi_active)
+
+        if mb[0] and continue_button.collidepoint(mx,my) and timer_ended:
+            return "MoDebate"
+
+        if mb[0] and back_button.collidepoint(mx, my):
+                return "menu"
+            
+        back_button=draw_back_button(screen)
+
+        display.flip()
+def MoDebate(screen):
+    global speeches,endRect
+    back_button=draw_back_button(screen)
+    font.init()
+    timertxtFont = font.Font("assets/That Sounds Great.otf", 150)
+    buttonFont = font.SysFont("Arial", 40)
+    inputFont = font.SysFont("Arial", 32)
+    TopicRect = Rect(75, 75, 1100, 300)
+    Timerrect = Rect(350, 432, 550, 150)
+    continue_button = Rect(350, 432, 550, 150)
+    # Buttons left and right of the timer
+    pause_button = Rect(Timerrect.left - 160, Timerrect.centery - 30, 150, 60)
+    resume_button = Rect(Timerrect.right + 10, Timerrect.centery - 30, 150, 60)
+
+    # Timer setup
+    total_seconds = speeches[3]   # 15 minutes
+    start_ticks = time.get_ticks()
+    paused = False
+    pause_start = 0
+    pause_accumulated = 0
+
+    # Input text field
+    input_active = False
+    input_text = ""
+    input_box = TopicRect
+    running=True
+    def draw_button(rect, text, active=True):
+        color = GREY if active else (100, 100, 100)
+        rect_color = Surface((rect.width, rect.height), SRCALPHA)
+        rect_color.fill((*color, 255))
+        screen.blit(rect_color, (rect.x, rect.y))
+        draw.rect(screen,BLACK,rect,2)
+        label = buttonFont.render(text, True, BLACK)
+        label_rect = label.get_rect(center=rect.center)
+        screen.blit(label, label_rect)
+
+    def draw_timer(start_ticks, total_seconds, pause_accumulated):
+        current_ticks = time.get_ticks()
+        seconds_passed = (current_ticks - start_ticks - pause_accumulated) // 1000
+        remaining = max(0, total_seconds - seconds_passed)
+        mins, secs = divmod(remaining, 60)
+        timer_str = '{:02d}:{:02d}'.format(mins, secs)
+
+        draw.rect(screen, RED, Timerrect)
+        timetext = timertxtFont.render(timer_str, True, BLACK)
+        screen.blit(timetext, (Timerrect.x + 17, Timerrect.y - 15))
+
+        return remaining
+    timer_ended = False
+    poi_button = Rect(1050, 20, 150, 50)
+
+    # POI variables
+    poi_active = False
+    poi_start = 0
+    poi_duration = 15  # seconds
+    poi_count = 0
+
+    while running:
+        mx, my = mouse.get_pos()
+        mb = mouse.get_pressed()
+        for evt in event.get():
+            if evt.type == QUIT:
+                running = False
+            elif evt.type == MOUSEBUTTONDOWN:
+                if poi_button.collidepoint(evt.pos):
+                    if poi_active:
+                        poi_active = False
+                        poi_count += 1
+                    else:
+                        poi_active = True
+                        poi_start = time.get_ticks()
+                if pause_button.collidepoint(evt.pos) and not paused:
+                    paused = True
+                    pause_start = time.get_ticks()
+                elif resume_button.collidepoint(evt.pos) and paused:
+                    paused = False
+                    pause_end = time.get_ticks()
+                    pause_accumulated += pause_end - pause_start
+                elif continue_button.collidepoint(mx,my) and remaining_time == 0:
+                    print("sigma")
+                    #would go to next thing.
+                
+                
+            elif evt.type == KEYDOWN and input_active:
+                if evt.key == K_BACKSPACE:
+                    input_text = input_text[:-1]
+                elif evt.key == K_RETURN:
+                    input_active = False
+                else:
+                    input_text += evt.unicode
+
+            if mb[0] and back_button.collidepoint(mx,my):
+                return "menu"
+            back_button=draw_back_button(screen)
+        
+        screen.fill((r,g,b))
+
+        # Draw input box with transparency and border
+        topic_surface = Surface((input_box.width, input_box.height), SRCALPHA)
+        topic_surface.fill((255, 255, 255, 180))
+        screen.blit(topic_surface, (input_box.x, input_box.y))
+        draw.rect(screen, BLACK, input_box, 2)
+
+        # Draw topic text
+        text_surf = inputFont.render(input_text, True, BLACK)
+        screen.blit(text_surf, (input_box.x + 10, input_box.y + 10))
+
+        # Draw timer and buttons
+        if not paused:
+            remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+        else:
+            draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+        draw_button(pause_button, "Pause", not paused)
+        draw_button(resume_button, "Resume", paused)
+
+        if remaining_time == 0:
+            if not timer_ended:
+                if not paused:
+                    remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+                else:
+                    draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+                draw_button(pause_button, "Pause", not paused)
+                draw_button(resume_button, "Resume", paused)
+
+                if remaining_time == 0:
+                    timer_ended = True
+            else:
+                # Show the continue button instead of timer
+                draw.rect(screen, RED, Timerrect)
+                draw_button(continue_button, "Continue")
+
+
+
+        if poi_active:
+            poi_elapsed = (time.get_ticks() - poi_start) // 1000
+            poi_remaining = max(0, poi_duration - poi_elapsed)
+            poi_label = buttonFont.render(f"POI: {poi_remaining}s", True, WHITE)
+            screen.blit(poi_label, (poi_button.x-150, poi_button.y))
+            if poi_remaining == 0:
+                poi_count += 1
+                poi_active = False
+
+        draw_button(poi_button, f"POI: {poi_count}", not poi_active)
+
+        if mb[0] and continue_button.collidepoint(mx,my) and timer_ended:
+            return "LocDebate"
+
+        if mb[0] and back_button.collidepoint(mx, my):
+                return "menu"
+            
+        back_button=draw_back_button(screen)
+
+        display.flip()
+def LocDebate(screen):
+    global speeches,endRect
+    back_button=draw_back_button(screen)
+    font.init()
+    timertxtFont = font.Font("assets/That Sounds Great.otf", 150)
+    buttonFont = font.SysFont("Arial", 40)
+    inputFont = font.SysFont("Arial", 32)
+    TopicRect = Rect(75, 75, 1100, 300)
+    Timerrect = Rect(350, 432, 550, 150)
+    continue_button = Rect(350, 432, 550, 150)
+    # Buttons left and right of the timer
+    pause_button = Rect(Timerrect.left - 160, Timerrect.centery - 30, 150, 60)
+    resume_button = Rect(Timerrect.right + 10, Timerrect.centery - 30, 150, 60)
+
+    # Timer setup
+    total_seconds = speeches[4]   # 15 minutes
+    start_ticks = time.get_ticks()
+    paused = False
+    pause_start = 0
+    pause_accumulated = 0
+
+    # Input text field
+    input_active = False
+    input_text = ""
+    input_box = TopicRect
+    running=True
+    def draw_button(rect, text, active=True):
+        color = GREY if active else (100, 100, 100)
+        rect_color = Surface((rect.width, rect.height), SRCALPHA)
+        rect_color.fill((*color, 255))
+        screen.blit(rect_color, (rect.x, rect.y))
+        draw.rect(screen,BLACK,rect,2)
+        label = buttonFont.render(text, True, BLACK)
+        label_rect = label.get_rect(center=rect.center)
+        screen.blit(label, label_rect)
+
+    def draw_timer(start_ticks, total_seconds, pause_accumulated):
+        current_ticks = time.get_ticks()
+        seconds_passed = (current_ticks - start_ticks - pause_accumulated) // 1000
+        remaining = max(0, total_seconds - seconds_passed)
+        mins, secs = divmod(remaining, 60)
+        timer_str = '{:02d}:{:02d}'.format(mins, secs)
+
+        draw.rect(screen, RED, Timerrect)
+        timetext = timertxtFont.render(timer_str, True, BLACK)
+        screen.blit(timetext, (Timerrect.x + 17, Timerrect.y - 15))
+
+        return remaining
+    timer_ended = False
+    poi_button = Rect(1050, 20, 150, 50)
+
+    # POI variables
+    poi_active = False
+    poi_start = 0
+    poi_duration = 15  # seconds
+    poi_count = 0
+
+    while running:
+        mx, my = mouse.get_pos()
+        mb = mouse.get_pressed()
+        for evt in event.get():
+            if evt.type == QUIT:
+                running = False
+            elif evt.type == MOUSEBUTTONDOWN:
+                if poi_button.collidepoint(evt.pos):
+                    if poi_active:
+                        poi_active = False
+                        poi_count += 1
+                    else:
+                        poi_active = True
+                        poi_start = time.get_ticks()
+                if pause_button.collidepoint(evt.pos) and not paused:
+                    paused = True
+                    pause_start = time.get_ticks()
+                elif resume_button.collidepoint(evt.pos) and paused:
+                    paused = False
+                    pause_end = time.get_ticks()
+                    pause_accumulated += pause_end - pause_start
+                elif continue_button.collidepoint(mx,my) and remaining_time == 0:
+                    print("sigma")
+                    #would go to next thing.
+                
+                
+            elif evt.type == KEYDOWN and input_active:
+                if evt.key == K_BACKSPACE:
+                    input_text = input_text[:-1]
+                elif evt.key == K_RETURN:
+                    input_active = False
+                else:
+                    input_text += evt.unicode
+
+            if mb[0] and back_button.collidepoint(mx,my):
+                return "menu"
+            back_button=draw_back_button(screen)
+        
+        screen.fill((r,g,b))
+
+        # Draw input box with transparency and border
+        topic_surface = Surface((input_box.width, input_box.height), SRCALPHA)
+        topic_surface.fill((255, 255, 255, 180))
+        screen.blit(topic_surface, (input_box.x, input_box.y))
+        draw.rect(screen, BLACK, input_box, 2)
+
+        # Draw topic text
+        text_surf = inputFont.render(input_text, True, BLACK)
+        screen.blit(text_surf, (input_box.x + 10, input_box.y + 10))
+
+        # Draw timer and buttons
+        if not paused:
+            remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+        else:
+            draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+        draw_button(pause_button, "Pause", not paused)
+        draw_button(resume_button, "Resume", paused)
+
+        if remaining_time == 0:
+            if not timer_ended:
+                if not paused:
+                    remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+                else:
+                    draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+                draw_button(pause_button, "Pause", not paused)
+                draw_button(resume_button, "Resume", paused)
+
+                if remaining_time == 0:
+                    timer_ended = True
+            else:
+                # Show the continue button instead of timer
+                draw.rect(screen, RED, Timerrect)
+                draw_button(continue_button, "Continue")
+
+
+
+        if poi_active:
+            poi_elapsed = (time.get_ticks() - poi_start) // 1000
+            poi_remaining = max(0, poi_duration - poi_elapsed)
+            poi_label = buttonFont.render(f"POI: {poi_remaining}s", True, WHITE)
+            screen.blit(poi_label, (poi_button.x-150, poi_button.y))
+            if poi_remaining == 0:
+                poi_count += 1
+                poi_active = False
+
+        draw_button(poi_button, f"POI: {poi_count}", not poi_active)
+
+        if mb[0] and continue_button.collidepoint(mx,my) and timer_ended:
+            return "PmcDebate"
+
+        if mb[0] and back_button.collidepoint(mx, my):
+                return "menu"
+            
+        back_button=draw_back_button(screen)
+
+        display.flip()
+def PmcDebate(screen):
+    global speeches,endRect
+    back_button=draw_back_button(screen)
+    font.init()
+    timertxtFont = font.Font("assets/That Sounds Great.otf", 150)
+    buttonFont = font.SysFont("Arial", 40)
+    inputFont = font.SysFont("Arial", 32)
+    TopicRect = Rect(75, 75, 1100, 300)
+    Timerrect = Rect(350, 432, 550, 150)
+    continue_button = Rect(350, 432, 550, 150)
+    # Buttons left and right of the timer
+    pause_button = Rect(Timerrect.left - 160, Timerrect.centery - 30, 150, 60)
+    resume_button = Rect(Timerrect.right + 10, Timerrect.centery - 30, 150, 60)
+    # Timer setup
+    total_seconds = speeches[5]   # 15 minutes
+    start_ticks = time.get_ticks()
+    paused = False
+    pause_start = 0
+    pause_accumulated = 0
+
+    # Input text field
+    input_active = False
+    input_text = ""
+    input_box = TopicRect
+    running=True
+    def draw_button(rect, text, active=True):
+        color = GREY if active else (100, 100, 100)
+        rect_color = Surface((rect.width, rect.height), SRCALPHA)
+        rect_color.fill((*color, 255))
+        screen.blit(rect_color, (rect.x, rect.y))
+        draw.rect(screen,BLACK,rect,2)
+        label = buttonFont.render(text, True, BLACK)
+        label_rect = label.get_rect(center=rect.center)
+        screen.blit(label, label_rect)
+
+    def draw_timer(start_ticks, total_seconds, pause_accumulated):
+        current_ticks = time.get_ticks()
+        seconds_passed = (current_ticks - start_ticks - pause_accumulated) // 1000
+        remaining = max(0, total_seconds - seconds_passed)
+        mins, secs = divmod(remaining, 60)
+        timer_str = '{:02d}:{:02d}'.format(mins, secs)
+
+        draw.rect(screen, RED, Timerrect)
+        timetext = timertxtFont.render(timer_str, True, BLACK)
+        screen.blit(timetext, (Timerrect.x + 17, Timerrect.y - 15))
+
+        return remaining
+    timer_ended = False
+    poi_button = Rect(1050, 20, 150, 50)
+
+    # POI variables
+    poi_active = False
+    poi_start = 0
+    poi_duration = 15  # seconds
+    poi_count = 0
+
+    while running:
+        mx, my = mouse.get_pos()
+        mb = mouse.get_pressed()
+        for evt in event.get():
+            if evt.type == QUIT:
+                running = False
+            elif evt.type == MOUSEBUTTONDOWN:
+                if poi_button.collidepoint(evt.pos):
+                    if poi_active:
+                        poi_active = False
+                        poi_count += 1
+                    else:
+                        poi_active = True
+                        poi_start = time.get_ticks()
+                if pause_button.collidepoint(evt.pos) and not paused:
+                    paused = True
+                    pause_start = time.get_ticks()
+                elif resume_button.collidepoint(evt.pos) and paused:
+                    paused = False
+                    pause_end = time.get_ticks()
+                    pause_accumulated += pause_end - pause_start
+                elif continue_button.collidepoint(mx,my) and remaining_time == 0:
+                    print("sigma")
+                    #would go to next thing.
+                
+                
+            elif evt.type == KEYDOWN and input_active:
+                if evt.key == K_BACKSPACE:
+                    input_text = input_text[:-1]
+                elif evt.key == K_RETURN:
+                    input_active = False
+                else:
+                    input_text += evt.unicode
+
+            if mb[0] and back_button.collidepoint(mx,my):
+                return "menu"
+            back_button=draw_back_button(screen)
+        
+        screen.fill((r,g,b))
+
+        # Draw input box with transparency and border
+        topic_surface = Surface((input_box.width, input_box.height), SRCALPHA)
+        topic_surface.fill((255, 255, 255, 180))
+        screen.blit(topic_surface, (input_box.x, input_box.y))
+        draw.rect(screen, BLACK, input_box, 2)
+
+        # Draw topic text
+        text_surf = inputFont.render(input_text, True, BLACK)
+        screen.blit(text_surf, (input_box.x + 10, input_box.y + 10))
+
+        # Draw timer and buttons
+        if not paused:
+            remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+        else:
+            draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+        draw_button(pause_button, "Pause", not paused)
+        draw_button(resume_button, "Resume", paused)
+
+        if remaining_time == 0:
+            if not timer_ended:
+                if not paused:
+                    remaining_time = draw_timer(start_ticks, total_seconds, pause_accumulated)
+                else:
+                    draw_timer(start_ticks, total_seconds, pause_accumulated + (time.get_ticks() - pause_start))
+
+                draw_button(pause_button, "Pause", not paused)
+                draw_button(resume_button, "Resume", paused)
+
+                if remaining_time == 0:
+                    timer_ended = True
+            else:
+                # Show the continue button instead of timer
+                draw.rect(screen, RED, Timerrect)
+                draw_button(continue_button, "Continue")
+
+
+
+        if poi_active:
+            poi_elapsed = (time.get_ticks() - poi_start) // 1000
+            poi_remaining = max(0, poi_duration - poi_elapsed)
+            poi_label = buttonFont.render(f"POI: {poi_remaining}s", True, WHITE)
+            screen.blit(poi_label, (poi_button.x-150, poi_button.y))
+            if poi_remaining == 0:
+                poi_count += 1
+                poi_active = False
+
+        draw_button(poi_button, f"POI: {poi_count}", not poi_active)
+
+        if mb[0] and back_button.collidepoint(mx, my):
+                return "menu"
+            
+        back_button=draw_back_button(screen)
+
+        display.flip()
+
+
 def settings(screen):
     font.init()
-    main_font = font.SysFont("That Sounds Good.otf", 40)
-    small_font = font.SysFont("That Sounds Good.otf", 30)
+    main_font = font.SysFont("assets/That Sounds Good.otf", 40)
+    small_font = font.SysFont("assets/That Sounds Good.otf", 30)
     back_button=draw_back_button(screen)
 
     
@@ -284,6 +1381,18 @@ while page != "exit":
         page = menu(screen)
     elif page == "debate":
         page = PrepDebate(screen)
+    elif page == "PmDebate":
+        page = PmDebate(screen)
+    elif page == "LopDebate":
+        page = LopDebate(screen)
+    elif page == "MgDebate":
+        page = MgDebate(screen)
+    elif page == "MoDebate":
+        page = MoDebate(screen)
+    elif page == "LocDebate":
+        page = LocDebate(screen)
+    elif page == "PmcDebate":
+        page = PmcDebate(screen)
     elif page == "settings":
         page = settings(screen)
     elif page == "about":
